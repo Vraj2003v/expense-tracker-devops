@@ -1,0 +1,50 @@
+---
+- name: Provision expense-tracker host (RHEL-family) and deploy container
+  hosts: app_servers
+  become: true
+
+  tasks:
+    - name: Install prerequisite packages
+      dnf:
+        name:
+          - yum-utils
+          - device-mapper-persistent-data
+          - lvm2
+        state: present
+
+    - name: Add Docker CE repo
+      shell: dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+      args:
+        creates: /etc/yum.repos.d/docker-ce.repo
+
+    - name: Install Docker Engine
+      dnf:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+
+    - name: Start and enable Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Copy application source to host
+      copy:
+        src: ../app/
+        dest: /opt/expense-tracker/
+        mode: "0755"
+
+    - name: Build the Docker image
+      command: docker build -t expense-tracker-api:latest /opt/expense-tracker
+
+    - name: Run the container
+      docker_container:
+        name: expense-tracker-api
+        image: expense-tracker-api:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "3000:3000"

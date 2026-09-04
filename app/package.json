@@ -1,0 +1,13 @@
+{
+  "name": "expense-tracker-api",
+  "version": "1.0.0",
+  "description": "Smart Expense Tracker backend API - containerized and deployed via Docker/Kubernetes/Helm CI-CD pipeline",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/server.test.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

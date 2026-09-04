@@ -1,0 +1,48 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm test
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t expense-tracker-api:${{ github.sha }} ./app
+
+      # Push to JFrog Artifactory (requires ARTIFACTORY_URL/USER/TOKEN repo secrets)
+      - name: Log in to Artifactory
+        run: |
+          echo "${{ secrets.ARTIFACTORY_TOKEN }}" | docker login ${{ secrets.ARTIFACTORY_URL }} \
+            -u ${{ secrets.ARTIFACTORY_USER }} --password-stdin
+      - name: Tag and push image
+        run: |
+          docker tag expense-tracker-api:${{ github.sha }} ${{ secrets.ARTIFACTORY_URL }}/expense-tracker-api:${{ github.sha }}
+          docker push ${{ secrets.ARTIFACTORY_URL }}/expense-tracker-api:${{ github.sha }}
+
+  helm-lint:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - run: helm lint ./helm/expense-tracker

@@ -1,0 +1,20 @@
+version: "3.9"
+services:
+  expense-api:
+    build: ./app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  health-service:
+    build: ./java-health-service
+    ports:
+      - "8080:8080"
+    depends_on:
+      - expense-api

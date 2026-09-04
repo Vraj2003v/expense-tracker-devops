@@ -1,0 +1,35 @@
+﻿# Node / npm (app/)
+node_modules/
+npm-debug.log*
+.npm
+*.log
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Java / Gradle (java-health-service/)
+.gradle/
+build/
+*.class
+*.jar
+
+# Docker
+*.pid
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.iml
+
+# Helm
+helm/**/charts/
+helm/**/*.tgz
+
+# Vagrant
+.vagrant/
