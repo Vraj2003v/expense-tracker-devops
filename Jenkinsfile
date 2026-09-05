@@ -1,8 +1,8 @@
 pipeline {
     agent any
 
-    environment {
-        IMAGE_NAME = "expense-tracker-api"
+    tools {
+        nodejs 'node20'
     }
 
     stages {
@@ -12,12 +12,6 @@ pipeline {
                     sh 'npm install'
                     sh 'npm test'
                 }
-            }
-        }
-
-        stage('Build Docker Image') {
-            steps {
-                sh "docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} ./app"
             }
         }
     }
