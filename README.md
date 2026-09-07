@@ -1,57 +1,51 @@
 # Smart Expense Tracker — DevOps Pipeline
 
-A containerized deployment pipeline for the Smart Expense Tracker API, built to demonstrate
-a real, working DevOps/CI-CD toolchain end to end — not just listed skills.
+Extension of my Smart Expense Tracker project. Added a full deployment pipeline around
+the existing API to actually learn Docker/K8s/Helm/CI-CD/Ansible instead of just reading
+about them.
 
 ## What's in here
 
-| Layer | Files | What it proves |
-|---|---|---|
-| App | `app/server.js`, `app/test/` | Express REST API with a real test suite |
-| Containerization | `app/Dockerfile`, `docker-compose.yml` | Docker multi-stage build, healthcheck, multi-container compose |
-| Orchestration | `k8s/*.yaml` | Raw Kubernetes Deployment/Service/ConfigMap |
-| Packaging | `helm/expense-tracker/` | Helm chart templating the same manifests |
-| CI/CD (GitHub) | `.github/workflows/ci-cd.yml` | GitHub Actions: test → build → push to Artifactory → helm lint |
-| CI/CD (alt) | `Jenkinsfile` | Jenkins pipeline: test → build → push → helm deploy |
-| Provisioning | `Vagrantfile`, `ansible/` | Vagrant CentOS/RHEL VM, Ansible playbook installing Docker and deploying the container |
-| Secondary service | `java-health-service/` | Gradle-built Java sidecar exposing an aggregate health endpoint |
+- `app/` — Express API + test suite (already existed)
+- `Dockerfile` + `docker-compose.yml` — Docker build for the API and a small Java sidecar
+- `k8s/` — plain Kubernetes manifests (Deployment, Service, ConfigMap)
+- `helm/expense-tracker/` — same thing as a Helm chart
+- `.github/workflows/ci-cd.yml` — GitHub Actions: run tests, build image, push to GHCR
+- `Jenkinsfile` — same tests, run through a local Jenkins instance instead
+- `Vagrantfile` + `ansible/` — spins up a CentOS VM and installs Docker + runs the container on it
+- `java-health-service/` — small Gradle-built Java service, just returns a health status
 
-## Running it locally
+## Running it
 
 ```bash
-cd app && npm install && npm test        # run the test suite
-docker compose up --build                # build + run API and health-service together
+cd app && npm install && npm test
+docker compose up --build
 curl http://localhost:3000/healthz
 curl http://localhost:8080/status
 ```
 
-## Running it on a VM (Ansible/Vagrant/RHEL path)
-
+Kubernetes:
 ```bash
-vagrant up   # boots a CentOS box, provisions Docker via Ansible, builds & runs the container
-```
-
-## Deploying to Kubernetes
-
-```bash
-# raw manifests
 kubectl apply -f k8s/
-
-# or via Helm
+# or
 helm install expense-tracker ./helm/expense-tracker
 ```
 
-## Next steps to make this fully real
+VM path:
+```bash
+vagrant up
+```
 
-1. Push this repo to GitHub under your existing `Smart Expense Tracker` project (or as a new
-   `expense-tracker-devops` repo linked from it).
-2. Spin up a local cluster with `kind` or `minikube` and actually run `kubectl apply` / `helm install`
-   against it — take a screenshot of `kubectl get pods` for your portfolio.
-3. Set up a free JFrog Artifactory or GitHub Container Registry account and let the GitHub Actions
-   workflow actually push an image — this is what makes "Artifactory" a genuine, defensible resume line.
-4. Install Jenkins locally (or via the official Docker image) and run `Jenkinsfile` once end to end.
-5. Run `vagrant up` once on your machine (needs VirtualBox + Vagrant installed) to confirm the
-   Ansible playbook completes — this is what makes RHEL/CentOS and Ansible genuine, not just configs.
+## What I actually ran (not just wrote)
 
-Once you've run each of these once, every keyword this project targets is honestly earned:
-**Docker, Kubernetes, Helm, GitHub Actions, Jenkins, Artifactory, Ansible, Vagrant, RHEL/CentOS, Gradle.**
+I went through all five pieces of this by hand on my own machine, not just committed the config files. Notes on what actually happened, including the stuff that broke:
+
+**Docker** — tests passed, `docker compose up --build` worked, both healthchecks came back 200.
+
+**Kubernetes + Helm** — deployed the raw manifests first, hit an `ImagePullBackOff` because the image tag wasn't in any registry, fixed it by pointing at the local image directly. Then installed the Helm chart as a second release next to it — Helm refused at first because it saw a resource with the same name already existed and wasn't created by Helm, fixed by giving the release a different name. Ended up with both deployments running side by side.
+
+**GitHub Actions + GHCR** — switched the workflow from Artifactory to GHCR since it doesn't need extra secrets. First run failed because GHCR rejects image names with uppercase letters (my GitHub username has one) — fixed by lowercasing it before tagging. After that, all three jobs passed.
+
+**Jenkins** — ran Jenkins itself in Docker, pointed it at this repo. First build failed because there's no Node.js inside a stock Jenkins container — installed the NodeJS plugin and configured it as a build tool. Second failure was a missing `libatomic.so.1` library that Node needed — installed it with apt inside the Jenkins container. After both fixes, the pipeline ran the test suite successfully.
+
+**Vagrant + Ansible + RHEL/CentOS** — this one took the most debugging. Ansible doesn't run on Windows, so I switched Vagrant to run Ansible inside the VM itself instead of from the host. Then the default shared folder wasn't mounting (guest additions version mismatch with VirtualBox), so I switched to uploading the files directly instead of relying on the shared folder. Then the playbook couldn't find any hosts to run against because of an inventory mismatch — fixed by targeting all hosts instead of a named group. Then the Ansible Docker module itself broke because of a version conflict between two Python libraries it depends on — replaced it with a plain `docker run` shell command instead. After all of that, the playbook finished clean, Docker was running inside the CentOS VM, and the container responded on port 3000.
